@@ -1,5 +1,5 @@
 // This code updates Ricoh Toner chip for Ricoh Aficio SP C250SF, SP C250DN, C250e, etc...
-// Update EEPROM_I2C_ADDRESS define value with the chip you want to reprogram
+// I2C_ADDRESS states toner color.
 // 83 is Chip K - black
 // 82 is Chip C - cyan
 // 81 is Chip M - magenta
@@ -17,17 +17,19 @@ void setup() {
   // Start Wire and Serial bus
   Wire.begin();
   Serial.begin(9600);
+  pinMode(LED_BUILTIN, OUTPUT);
 }
 
 int isToner() {
-  byte i2caddress = getI2CAddress();
+  byte i2caddress = getI2CAddress(); // try to whether there's an I2C component connected
   if (i2caddress == 255)
     return -1;
-    
+
+  // found i2c component
   Serial.print("I2C address: ");
   Serial.println(i2caddress);
     
-  // Start Read chip
+  // start read chip
   byte readData[128];
   for(byte i=0;i<128;i++){
       readData[i] = i2cread(i2caddress, i);
@@ -36,23 +38,39 @@ int isToner() {
   } 
   Serial.println(")");
 
-  if (memcmp(readData, KChipData, 4 * sizeof(byte)) == 0)
+  if (memcmp(readData, KChipData, 2 * sizeof(byte)) == 0)
     return i2caddress;
-  else if (memcmp(readData, CChipData, 4 * sizeof(byte)) == 0)
+  else if (memcmp(readData, CChipData, 2 * sizeof(byte)) == 0)
     return i2caddress;
-  else if (memcmp(readData, MChipData, 4 * sizeof(byte)) == 0)
+  else if (memcmp(readData, MChipData, 2 * sizeof(byte)) == 0)
     return i2caddress;
-  else if (memcmp(readData, YChipData, 4 * sizeof(byte)) == 0)
+  else if (memcmp(readData, YChipData, 2 * sizeof(byte)) == 0)
     return i2caddress;
   else return -1;
 }
 
+void flashledfourtimes() {
+  flashled();  
+  flashled();  
+  flashled();  
+  flashled();  
+}
+
+void flashled() {
+  digitalWrite(LED_BUILTIN, HIGH);
+  delay(300);  
+  digitalWrite(LED_BUILTIN, LOW);
+  delay(300);  
+}
+
 void loop() {
-  delay(1000);
-  Serial.println("Reading toner..");
+  delay(2000);
+  flashled();
+  Serial.println("Looking for toner..");
   byte i2caddress = isToner();
   if (i2caddress != 255) // valid toner
   {
+    flashledfourtimes();
     byte writeData[128];
     switch(i2caddress) {
       case 83: 
@@ -77,17 +95,9 @@ void loop() {
     for(byte i = 0; i < 128; i++){
       i2cwrite(i2caddress, (byte)i, (byte)writeData[i]);
     }
+    flashledfourtimes();
     Serial.println("Writing done. Sleeping 30 seconds.");
     delay(30000);
-
-//    Serial.println("Verifying...");
-//    byte verifyToner = isToner();
-//    if (verifyToner == toner) {
-//      Serial.println("Verification OK!");
-//    }
-//    else {
-//      Serial.println("Verification failed!");
-//    }
   }
 }
 
